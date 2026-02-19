@@ -16,31 +16,25 @@ def render(alpha: float, power: float, dropout_rate: float, two_sided: bool):
     st.header("One-Sample Mean — Advanced Sample Size Planning")
 
     # ==========================================================
-    # SECTION 1 — Conceptual Explanation
+    # Concept
     # ==========================================================
 
     with st.expander("📘 What is One-Sample Mean Design?", expanded=True):
         st.markdown("""
-This design is used when:
-
-• You have **one group**
-• You want to compare its mean to a known/reference value
+Used when comparing a single group mean to a known reference value.
 
 Examples:
-- Is mean fasting glucose different from 100 mg/dL?
-- Is mean LDL lower than guideline threshold?
-- Is average pain score different from historical data?
+• Is mean fasting glucose different from 100 mg/dL?
+• Is average LDL below guideline threshold?
+• Is mean biomarker level different from historical norm?
 
-Statistical test:
-One-sample t-test (large sample → z approximation)
-
-Key planning inputs:
-1) SD (standard deviation of outcome)
-2) Clinically meaningful difference (Δ)
+Required inputs:
+• Standard deviation (SD)
+• Clinically meaningful difference (Δ)
         """)
 
     # ==========================================================
-    # SECTION 2 — Formula
+    # Formula
     # ==========================================================
 
     with st.expander("📐 Mathematical Formula", expanded=True):
@@ -50,13 +44,6 @@ Key planning inputs:
         """)
 
         st.markdown("""
-Where:
-
-- SD = standard deviation
-- Δ = clinically meaningful difference
-- Zα = critical value from α
-- Zβ = critical value from power
-
 Two-sided:
 Zα = Φ⁻¹(1 − α/2)
 
@@ -65,63 +52,42 @@ Zα = Φ⁻¹(1 − α)
         """)
 
     # ==========================================================
-    # SECTION 3 — HOW TO EXTRACT SD FROM PAPERS
+    # Extract SD Section
     # ==========================================================
 
     with st.expander("🧠 Extract SD from Common Abstract Statistics", expanded=True):
 
         tab1, tab2, tab3 = st.tabs([
             "SD from 95% CI",
-            "SD from Standard Error (SE)",
-            "SD from IQR (approximate)"
+            "SD from SE",
+            "SD from IQR"
         ])
 
         # -----------------------------
         # SD from CI
         # -----------------------------
         with tab1:
-            st.markdown("""
-If a paper reports:
 
-Mean = 120 (95% CI 115–125)
+            mean_ci = st.number_input("Mean (optional)", value=100.0, key="ci_mean")
+            lower = st.number_input("CI lower", value=95.0, key="ci_lower")
+            upper = st.number_input("CI upper", value=105.0, key="ci_upper")
+            n_ci = st.number_input("Sample size (n)", min_value=2, value=50, key="ci_n")
 
-Then:
-
-SE = (Upper − Lower) / (2 × Z₀.₉₇₅)
-
-SD = SE × √n
-            """)
-
-            mean_ci = st.number_input("Mean (optional)", value=100.0)
-            lower = st.number_input("CI lower", value=95.0)
-            upper = st.number_input("CI upper", value=105.0)
-            n_ci = st.number_input("Sample size (n)", min_value=2, value=50)
-
-            if st.button("Compute SD from CI"):
+            if st.button("Compute SD from CI", key="ci_button"):
                 Z = 1.96
                 se = (upper - lower) / (2 * Z)
                 sd = se * math.sqrt(n_ci)
-
                 st.success(f"Estimated SD ≈ {round(sd,4)}")
 
         # -----------------------------
         # SD from SE
         # -----------------------------
         with tab2:
-            st.markdown("""
-If a paper reports:
 
-Mean ± SE
+            se_val = st.number_input("Standard Error (SE)", value=2.0, key="se_value")
+            n_se = st.number_input("Sample size (n)", min_value=2, value=50, key="se_n")
 
-Then:
-
-SD = SE × √n
-            """)
-
-            se_val = st.number_input("Standard Error (SE)", value=2.0)
-            n_se = st.number_input("Sample size (n)", min_value=2, value=50)
-
-            if st.button("Compute SD from SE"):
+            if st.button("Compute SD from SE", key="se_button"):
                 sd = se_val * math.sqrt(n_se)
                 st.success(f"Estimated SD ≈ {round(sd,4)}")
 
@@ -129,57 +95,39 @@ SD = SE × √n
         # SD from IQR
         # -----------------------------
         with tab3:
-            st.markdown("""
-If median and IQR are reported:
 
-Approximation (normal assumption):
+            iqr = st.number_input("IQR (Q3 − Q1)", value=10.0, key="iqr_value")
 
-SD ≈ IQR / 1.35
-            """)
-
-            iqr = st.number_input("IQR (Q3 − Q1)", value=10.0)
-
-            if st.button("Approximate SD from IQR"):
+            if st.button("Approximate SD from IQR", key="iqr_button"):
                 sd = iqr / 1.35
                 st.success(f"Approximate SD ≈ {round(sd,4)}")
 
     # ==========================================================
-    # SECTION 4 — Compute Δ from literature
+    # Compute Δ
     # ==========================================================
 
-    with st.expander("📊 Compute Clinically Meaningful Δ from Two Means", expanded=False):
+    with st.expander("📊 Compute Δ from Means", expanded=False):
 
-        st.markdown("""
-If literature reports:
+        mean1 = st.number_input("Sample mean", value=110.0, key="delta_mean1")
+        ref = st.number_input("Reference value", value=100.0, key="delta_ref")
 
-Mean sample = 110  
-Reference value = 100  
-
-Then:
-
-Δ = |110 − 100| = 10
-        """)
-
-        mean1 = st.number_input("Sample mean", value=110.0)
-        ref = st.number_input("Reference value", value=100.0)
-
-        if st.button("Compute Δ"):
+        if st.button("Compute Δ", key="delta_button"):
             delta_calc = abs(mean1 - ref)
             st.success(f"Δ = {round(delta_calc,4)}")
 
     # ==========================================================
-    # SECTION 5 — PubMed Helper
+    # PubMed
     # ==========================================================
 
-    with st.expander("🔎 PubMed Literature Search Helper", expanded=False):
+    with st.expander("🔎 PubMed Literature Search", expanded=False):
 
         col1, col2 = st.columns(2)
         with col1:
-            outcome = st.text_input("Outcome / biomarker", value="fasting glucose")
+            outcome = st.text_input("Outcome", value="fasting glucose", key="pub_outcome")
         with col2:
-            population = st.text_input("Population", value="type 2 diabetes")
+            population = st.text_input("Population", value="type 2 diabetes", key="pub_population")
 
-        extra = st.text_input("Extra keywords", value="standard deviation OR mean")
+        extra = st.text_input("Extra keywords", value="standard deviation OR mean", key="pub_extra")
 
         suggested = build_pubmed_query(
             "One-Sample Mean",
@@ -188,13 +136,14 @@ Then:
             extra=extra
         )
 
-        query = st.text_input("PubMed query", value=suggested)
+        query = st.text_input("PubMed query", value=suggested, key="pub_query")
 
-        retmax = st.slider("Number of studies", 5, 100, 50, 5)
+        retmax = st.slider("Number of studies", 5, 100, 50, 5, key="pub_retmax")
 
-        api_key = st.text_input("NCBI API key (optional)", type="password").strip() or None
+        api_key = st.text_input("NCBI API key (optional)", type="password", key="pub_api").strip() or None
 
-        if st.button("Search PubMed"):
+        if st.button("Search PubMed", key="pub_search_button"):
+
             try:
                 pmids = search_pubmed(query=query, retmax=retmax, sort="relevance", api_key=api_key)
                 throttle_sleep(1, api_key=api_key)
@@ -222,37 +171,28 @@ Then:
                 st.error(str(e))
 
     # ==========================================================
-    # SECTION 6 — Final Sample Size
+    # Final Calculation
     # ==========================================================
 
     st.markdown("---")
-    st.subheader("🎯 Final Sample Size Calculation")
+    st.subheader("🎯 Final Sample Size")
 
-    sd = st.number_input("SD for planning", min_value=0.0001, value=15.0)
-    delta = st.number_input("Clinically meaningful Δ", min_value=0.0001, value=10.0)
+    sd = st.number_input("SD for planning", min_value=0.0001, value=15.0, key="final_sd")
+    delta = st.number_input("Δ for planning", min_value=0.0001, value=10.0, key="final_delta")
 
-    if st.button("Calculate Sample Size"):
+    if st.button("Calculate Sample Size", key="final_calc_button"):
 
         result = calculate_one_sample_mean(alpha, power, sd, delta, two_sided, dropout_rate)
 
         Z_alpha = stats.norm.ppf(1 - alpha/2) if two_sided else stats.norm.ppf(1 - alpha)
         Z_beta = stats.norm.ppf(power)
 
-        st.markdown("### Intermediate values")
         st.write(f"Zα = {round(Z_alpha,4)}")
         st.write(f"Zβ = {round(Z_beta,4)}")
-
-        st.latex(rf"""
-        n = \left(
-        \frac{{({round(Z_alpha,4)} + {round(Z_beta,4)}) \cdot {sd}}}
-        {{{delta}}}
-        \right)^2
-        """)
 
         st.success(f"Required Sample Size (adjusted): {result['n_required']}")
         st.write("Before dropout adjustment:", result["n_before_dropout"])
 
-        st.markdown("### Methods paragraph")
         paragraph = paragraph_one_sample_mean(
             alpha,
             power,
