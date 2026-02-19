@@ -39,7 +39,8 @@ Typical inputs needed from literature/pilot:
         suggested = build_pubmed_query("One-Sample Mean", outcome=outcome, population=population, extra=extra)
         query = st.text_input("PubMed query (editable)", value=suggested)
 
-        retmax = st.slider("Results", 5, 30, 12, 1)
+        retmax = st.slider("Number of studies to retrieve", 5, 100, 20, 5)
+
         api_key = st.text_input("NCBI API key (optional)", value="", type="password").strip() or None
 
         if st.button("Search PubMed"):
