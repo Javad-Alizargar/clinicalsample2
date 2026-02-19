@@ -75,7 +75,33 @@ def build_pubmed_query(study_type: str, outcome: str = "", population: str = "",
     return " ".join([t for t in base if t]).strip()
 
 
-def search_pubmed(query: str, retmax: int = 15, sort: str = "relevance", api_key: Optional[str] = None) -> List[str]:
+def search_pubmed(query: str, retmax: int = 20, sort: str = "relevance", api_key: Optional[str] = None) -> List[str]:
+    """
+    Search PubMed and return list of PMIDs.
+
+    - retmax capped at 100 for safety
+    - Supports optional API key
+    """
+
+    # Safety cap
+    retmax = min(int(retmax), 100)
+
+    params = {
+        "db": "pubmed",
+        "term": query,
+        "retmax": retmax,
+        "sort": sort,
+        "retmode": "json"
+    }
+
+    if api_key:
+        params["api_key"] = api_key
+
+    r = requests.get(f"{EUTILS_BASE}/esearch.fcgi", params=params, timeout=30)
+    r.raise_for_status()
+
+    data = r.json()
+    return data.get("esearchresult", {}).get("idlist", []) or []
     params = {"db": "pubmed", "term": query, "retmax": int(retmax), "sort": sort, "retmode": "json"}
     if api_key:
         params["api_key"] = api_key
