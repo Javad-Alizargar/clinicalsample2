@@ -1,0 +1,5 @@
+streamlit
+scipy
+statsmodels
+graphviz
+requests>=2.31.0
