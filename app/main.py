@@ -16,9 +16,9 @@ import streamlit as st
 # Modular study pages
 from app.study_pages.one_sample_mean_page import render as render_one_sample_mean
 from app.study_pages.two_independent_means_page import render as render_two_independent_means
+from app.study_pages.paired_mean_page import render as render_paired_mean   # ✅ NEW
 
 # Continuous calculators (kept for other non-modular types)
-from calculators.continuous.paired_mean import calculate_paired_mean
 from calculators.continuous.anova_oneway import calculate_anova_oneway
 
 # Binary calculators
@@ -27,7 +27,6 @@ from calculators.binary.two_proportions import calculate_two_proportions
 
 # Templates
 from templates.paragraph_templates import (
-    paragraph_paired_mean,
     paragraph_anova
 )
 
@@ -96,8 +95,21 @@ elif study_type == "Two Independent Means":
     )
 
 # ==========================================================
+# PAIRED MEAN (Modular)  ✅ NEW
+# ==========================================================
+elif study_type == "Paired Mean":
+
+    render_paired_mean(
+        alpha=alpha,
+        power=power,
+        dropout_rate=dropout_rate,
+        two_sided=two_sided
+    )
+
+# ==========================================================
 # Remaining study types still inline (to be modularized)
 # ==========================================================
+
 
 # ==========================================================
 # PAIRED MEAN (Before–After / Matched Pairs)
