@@ -20,7 +20,8 @@ from app.study_pages.paired_mean_page import render as render_paired_mean
 from app.study_pages.anova_oneway_page import render as render_anova_oneway
 from app.study_pages.one_proportion_page import render as render_one_proportion
 from app.study_pages.two_proportions_page import render as render_two_proportions
-from app.study_pages.case_control_or_page import render as render_case_control_or  # ✅ NEW
+from app.study_pages.case_control_or_page import render as render_case_control_or
+from app.study_pages.cohort_rr_page import render as render_cohort_rr  # ✅ NEW
 
 # --------------------------------------------------
 st.set_page_config(page_title="ClinSample AI", layout="centered")
@@ -103,187 +104,19 @@ elif study_type == "Two Proportions":
 # ==========================================================
 elif study_type == "Case-Control (Odds Ratio)":
     render_case_control_or(alpha, power, dropout_rate, two_sided)
+
+# ==========================================================
+# COHORT (RISK RATIO) ✅ NEW
+# ==========================================================
+elif study_type == "Cohort (Risk Ratio)":
+
+    render_cohort_rr(alpha, power, dropout_rate, two_sided)
+
 # ==========================================================
 # Remaining study types still inline (to be modularized)
 # ==========================================================
 
 
-# ==========================================================
-# COHORT (Risk Ratio)
-# ==========================================================
-elif study_type == "Cohort (Risk Ratio)":
-
-    import scipy.stats as stats
-    import math
-
-    st.header("Cohort Study (Risk Ratio Based Sample Size)")
-
-    # --------------------------------------------------
-    with st.expander("📘 When to Use This Design", expanded=True):
-        st.markdown("""
-Used for cohort studies or randomized trials
-when comparing two independent proportions using Risk Ratio (RR).
-
-Examples:
-• Drug vs placebo event risk  
-• Vaccinated vs unvaccinated infection risk  
-• Exposed vs unexposed disease incidence  
-
-Design:
-• Binary outcome
-• Independent groups
-• Risk Ratio as primary effect measure
-        """)
-
-    # --------------------------------------------------
-    with st.expander("📐 Mathematical Formula (Log Risk Ratio Method)", expanded=True):
-
-        st.latex(r"""
-        p_1 = RR \cdot p_0
-        """)
-
-        st.latex(r"""
-        n_1 =
-        \frac{
-        (Z_{\alpha} + Z_{\beta})^2
-        \left(
-        \frac{1-p_0}{p_0} +
-        \frac{1-p_1}{r \cdot p_1}
-        \right)
-        }
-        {(\ln RR)^2}
-        """)
-
-        st.latex(r"n_2 = r \cdot n_1")
-
-        st.write("Where:")
-        st.write("• p₀ = baseline risk in control group")
-        st.write("• p₁ = risk in exposed group")
-        st.write("• RR = target risk ratio")
-        st.write("• r = allocation ratio (n₂ / n₁)")
-
-    # --------------------------------------------------
-    with st.expander("📊 Parameter Guidance", expanded=False):
-
-        st.markdown("""
-**Baseline Risk (p₀)**  
-Sources:
-• Registry data  
-• Prior cohort studies  
-• RCT control arm  
-• Pilot study  
-
-**Risk Ratio (RR)**  
-Should be:
-• Clinically meaningful  
-• Supported by literature  
-
-RR close to 1 → very large sample size  
-Large RR (e.g., 2–3) → smaller sample size  
-
-**Allocation Ratio (r)**  
-r = n₂ / n₁  
-
-• r = 1 → equal groups  
-• Unequal allocation increases total sample size
-        """)
-
-    # --------------------------------------------------
-    st.markdown("---")
-    st.subheader("🎯 Final Sample Size Planning")
-
-    p0 = st.number_input(
-        "Baseline Risk in Control Group (p₀)",
-        min_value=0.0001,
-        max_value=0.9999,
-        value=0.20,
-        key="cohort_p0"
-    )
-
-    RR = st.number_input(
-        "Target Risk Ratio (RR)",
-        min_value=0.1,
-        value=1.5,
-        key="cohort_rr"
-    )
-
-    ratio = st.number_input(
-        "Allocation Ratio (n₂ / n₁)",
-        min_value=0.1,
-        value=1.0,
-        key="cohort_ratio"
-    )
-
-    if st.button("Calculate Sample Size (Cohort)", key="cohort_calc"):
-
-        p1 = p0 * RR
-
-        if p1 >= 1:
-            st.error("RR too large for given baseline risk (p₁ ≥ 1).")
-            st.stop()
-
-        # Z values
-        if two_sided:
-            Z_alpha = stats.norm.ppf(1 - alpha/2)
-        else:
-            Z_alpha = stats.norm.ppf(1 - alpha)
-
-        Z_beta = stats.norm.ppf(power)
-
-        ln_rr = math.log(RR)
-
-        # Core formula
-        numerator = (Z_alpha + Z_beta)**2 * (
-            ((1 - p0) / p0) +
-            ((1 - p1) / (ratio * p1))
-        )
-
-        n1 = numerator / (ln_rr**2)
-        n2 = ratio * n1
-
-        # Dropout adjustment
-        n1_adj = math.ceil(n1 / (1 - dropout_rate))
-        n2_adj = math.ceil(n2 / (1 - dropout_rate))
-
-        # --------------------------------------------------
-        st.markdown("### 🔎 Intermediate Values")
-
-        st.write(f"Zα = {round(Z_alpha,4)}")
-        st.write(f"Zβ = {round(Z_beta,4)}")
-        st.write(f"Derived p₁ (exposed risk) = {round(p1,4)}")
-        st.write(f"log(RR) = {round(ln_rr,4)}")
-
-        # Safe LaTeX
-        st.latex(rf"""
-        n_1 =
-        \frac{{
-        ({round(Z_alpha,4)} + {round(Z_beta,4)})^2
-        \left(
-        \frac{{1-{round(p0,4)}}}{{{round(p0,4)}}} +
-        \frac{{1-{round(p1,4)}}}{{{round(ratio,4)} \cdot {round(p1,4)}}}
-        \right)
-        }}
-        {{({round(ln_rr,4)})^2}}
-        """)
-
-        # --------------------------------------------------
-        st.success(f"Required Control Group (n₁): {n1_adj}")
-        st.success(f"Required Exposed Group (n₂): {n2_adj}")
-        st.write(f"Total Sample Size: {n1_adj + n2_adj}")
-
-        # --------------------------------------------------
-        st.markdown("### 📄 Copy for Thesis / Manuscript")
-
-        st.code(f"""
-Sample size was calculated for a cohort study using the log risk ratio method.
-Assuming a baseline risk of {p0} in the control group,
-a target risk ratio of {RR},
-and an allocation ratio of {ratio},
-the required sample size was {n1_adj} participants in the control group
-and {n2_adj} in the exposed group
-(total {n1_adj + n2_adj}),
-after adjusting for {dropout_rate*100:.1f}% anticipated dropout.
-        """)
 # ==========================================================
 # CORRELATION (Fisher z)
 # ==========================================================
