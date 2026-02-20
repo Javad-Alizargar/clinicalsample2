@@ -19,7 +19,8 @@ from app.study_pages.two_independent_means_page import render as render_two_inde
 from app.study_pages.paired_mean_page import render as render_paired_mean
 from app.study_pages.anova_oneway_page import render as render_anova_oneway
 from app.study_pages.one_proportion_page import render as render_one_proportion
-from app.study_pages.two_proportions_page import render as render_two_proportions   # ✅ NEW
+from app.study_pages.two_proportions_page import render as render_two_proportions
+from app.study_pages.case_control_or_page import render as render_case_control_or  # ✅ NEW
 
 # --------------------------------------------------
 st.set_page_config(page_title="ClinSample AI", layout="centered")
@@ -98,181 +99,15 @@ elif study_type == "Two Proportions":
     render_two_proportions(alpha, power, dropout_rate, two_sided)
 
 # ==========================================================
+# CASE-CONTROL (ODDS RATIO)  ✅ NEW
+# ==========================================================
+elif study_type == "Case-Control (Odds Ratio)":
+    render_case_control_or(alpha, power, dropout_rate, two_sided)
+# ==========================================================
 # Remaining study types still inline (to be modularized)
 # ==========================================================
 
 
-
-# ==========================================================
-# CASE–CONTROL (Odds Ratio)
-# ==========================================================
-elif study_type == "Case-Control (Odds Ratio)":
-
-    import scipy.stats as stats
-    import math
-
-    st.header("Case–Control Study (Odds Ratio Based Sample Size)")
-
-    # --------------------------------------------------
-    with st.expander("📘 When to Use This Design", expanded=True):
-        st.markdown("""
-Used for unmatched case–control studies.
-
-Examples:
-• Association between smoking and lung cancer  
-• Genetic variant and disease risk  
-• Exposure vs outcome (retrospective design)
-
-Design:
-• Binary exposure
-• Binary outcome
-• Comparison based on Odds Ratio (OR)
-        """)
-
-    # --------------------------------------------------
-    with st.expander("📐 Mathematical Formula (Log Odds Ratio Method)", expanded=True):
-
-        st.latex(r"""
-        p_1 = \frac{OR \cdot p_0}{1 - p_0 + OR \cdot p_0}
-        """)
-
-        st.latex(r"""
-        n_1 =
-        \frac{
-        (Z_{\alpha} + Z_{\beta})^2
-        \left(
-        \frac{1}{p_0(1-p_0)} +
-        \frac{1}{r \cdot p_1(1-p_1)}
-        \right)
-        }
-        {(\ln OR)^2}
-        """)
-
-        st.latex(r"n_2 = r \cdot n_1")
-
-        st.write("Where:")
-        st.write("• p₀ = exposure prevalence in controls")
-        st.write("• p₁ = exposure prevalence in cases (derived from OR)")
-        st.write("• r = control-to-case ratio")
-        st.write("• OR = target odds ratio")
-
-    # --------------------------------------------------
-    with st.expander("📊 Parameter Guidance", expanded=False):
-
-        st.markdown("""
-**p₀ (Exposure prevalence in controls)**  
-Sources:
-• Registry data  
-• Published literature  
-• Pilot data  
-
-**Odds Ratio (OR)**  
-Should be:
-• Clinically meaningful  
-• Supported by literature  
-
-Small OR (e.g., 1.2–1.5) → very large sample size  
-Large OR (e.g., 2–3) → smaller sample size  
-
-**Control-to-case ratio (r)**  
-r = n_controls / n_cases  
-
-• r = 1 → equal numbers  
-• r > 1 → more controls (efficient when cases are rare)  
-        """)
-
-    # --------------------------------------------------
-    st.markdown("---")
-    st.subheader("🎯 Final Sample Size Planning")
-
-    p0 = st.number_input(
-        "Exposure Prevalence in Controls (p₀)",
-        min_value=0.0001,
-        max_value=0.9999,
-        value=0.30,
-        key="cc_p0"
-    )
-
-    OR = st.number_input(
-        "Target Odds Ratio (OR)",
-        min_value=0.1,
-        value=2.0,
-        key="cc_or"
-    )
-
-    ratio = st.number_input(
-        "Control-to-Case Ratio (r)",
-        min_value=0.1,
-        value=1.0,
-        key="cc_ratio"
-    )
-
-    if st.button("Calculate Sample Size (Case-Control)", key="cc_calc"):
-
-        # Derive p1
-        p1 = (OR * p0) / (1 - p0 + OR * p0)
-
-        # Z values
-        if two_sided:
-            Z_alpha = stats.norm.ppf(1 - alpha/2)
-        else:
-            Z_alpha = stats.norm.ppf(1 - alpha)
-
-        Z_beta = stats.norm.ppf(power)
-
-        ln_or = math.log(OR)
-
-        # Core formula
-        numerator = (Z_alpha + Z_beta)**2 * (
-            (1 / (p0*(1-p0))) +
-            (1 / (ratio * p1*(1-p1)))
-        )
-
-        n1 = numerator / (ln_or**2)
-        n2 = ratio * n1
-
-        # Dropout adjustment
-        n1_adj = math.ceil(n1 / (1 - dropout_rate))
-        n2_adj = math.ceil(n2 / (1 - dropout_rate))
-
-        # --------------------------------------------------
-        st.markdown("### 🔎 Intermediate Values")
-
-        st.write(f"Zα = {round(Z_alpha,4)}")
-        st.write(f"Zβ = {round(Z_beta,4)}")
-        st.write(f"Estimated p₁ (cases) = {round(p1,4)}")
-        st.write(f"log(OR) = {round(ln_or,4)}")
-
-        # Safe LaTeX block
-        st.latex(rf"""
-        n_1 =
-        \frac{{
-        ({round(Z_alpha,4)} + {round(Z_beta,4)})^2
-        \left(
-        \frac{{1}}{{{round(p0,4)}(1-{round(p0,4)})}} +
-        \frac{{1}}{{{round(ratio,4)} \cdot {round(p1,4)}(1-{round(p1,4)})}}
-        \right)
-        }}
-        {{({round(ln_or,4)})^2}}
-        """)
-
-        # --------------------------------------------------
-        st.success(f"Required Cases (n₁): {n1_adj}")
-        st.success(f"Required Controls (n₂): {n2_adj}")
-        st.write(f"Total Sample Size: {n1_adj + n2_adj}")
-
-        # --------------------------------------------------
-        st.markdown("### 📄 Copy for Thesis / Manuscript")
-
-        st.code(f"""
-Sample size was calculated for an unmatched case–control study using the log odds ratio method.
-Assuming an exposure prevalence among controls of {p0},
-a target odds ratio of {OR},
-and a control-to-case ratio of {ratio},
-the required sample size was {n1_adj} cases and {n2_adj} controls
-(total {n1_adj + n2_adj}),
-after adjusting for {dropout_rate*100:.1f}% anticipated dropout.
-        """)
 # ==========================================================
 # COHORT (Risk Ratio)
 # ==========================================================
