@@ -1,7 +1,7 @@
 # ==========================================
 # Case-Control (Odds Ratio) — Modular Advanced Version
 # Unmatched case–control planning using exposure prevalence in controls (p0) + target OR
-# Includes helpers to derive OR from a 2×2 table and convert RR -> OR (approx)
+# Robust to different calculator return-key conventions
 # ==========================================
 
 import streamlit as st
@@ -12,17 +12,6 @@ from calculators.binary.case_control_or import calculate_case_control_or
 from templates.paragraph_templates import paragraph_case_control_or
 
 from app.components.pubmed_section import render_pubmed_section
-
-
-def _safe_float(x, default=None):
-    try:
-        return float(x)
-    except Exception:
-        return default
-
-
-def _clamp01(p):
-    return min(max(p, 0.0), 1.0)
 
 
 def _or_from_2x2(a, b, c, d):
@@ -48,6 +37,45 @@ def _rr_to_or(rr, p0):
     if denom <= 0:
         return None
     return rr * (1 - p0) / denom
+
+
+def _pick_keys_case_control(result: dict) -> dict:
+    """
+    Different implementations may return different key names.
+    We normalize to: n_cases, n_controls, n_total.
+    """
+    # Possible conventions we support
+    candidates_cases = ["n_cases", "cases", "n_case", "n1", "n_group1"]
+    candidates_controls = ["n_controls", "controls", "n_control", "n2", "n_group2"]
+    candidates_total = ["n_total", "total", "N", "n"]
+
+    n_cases = None
+    n_controls = None
+    n_total = None
+
+    for k in candidates_cases:
+        if k in result:
+            n_cases = result[k]
+            break
+
+    for k in candidates_controls:
+        if k in result:
+            n_controls = result[k]
+            break
+
+    for k in candidates_total:
+        if k in result:
+            n_total = result[k]
+            break
+
+    # If total missing, try compute
+    if n_total is None and (n_cases is not None) and (n_controls is not None):
+        try:
+            n_total = int(n_cases) + int(n_controls)
+        except Exception:
+            n_total = None
+
+    return {"n_cases": n_cases, "n_controls": n_controls, "n_total": n_total}
 
 
 def render(alpha: float, power: float, dropout_rate: float, two_sided: bool):
@@ -77,9 +105,7 @@ Typical sources from abstracts:
     with st.expander("📐 Core Formulas (for understanding)", expanded=False):
         st.markdown("### Convert OR + p0 to exposure prevalence among cases (p1)")
         st.latex(r"p_1 = \frac{OR \cdot p_0}{1 - p_0 + OR \cdot p_0}")
-
-        st.markdown("### Sample size uses a two-proportion style Z-test approximation")
-        st.caption("Your calculator handles this internally and then applies dropout adjustment.")
+        st.caption("The calculator uses this internally and then applies a Z-test approximation + dropout adjustment.")
 
     # ==========================================================
     # OR extraction helpers
@@ -94,11 +120,11 @@ Typical sources from abstracts:
     ])
 
     with tab_or_direct:
-        or_direct = st.number_input("Target OR", min_value=0.01, value=1.8, step=0.05, key="cc_or_direct")
+        st.number_input("Target OR (planning)", min_value=0.01, value=1.8, step=0.05, key="cc_or_direct")
         st.caption("If literature reports an adjusted OR close to your target effect, use it here.")
 
     with tab_2x2:
-        st.markdown("If abstract gives a 2×2 table (or counts you can reconstruct), compute OR.")
+        st.markdown("If you can reconstruct a 2×2 table, compute OR.")
         col1, col2 = st.columns(2)
         with col1:
             a = st.number_input("Cases exposed (a)", min_value=0, value=30, step=1, key="cc_a")
@@ -115,7 +141,7 @@ Typical sources from abstracts:
                 st.success(f"OR = {or_2x2:.4f}")
 
     with tab_ci:
-        st.markdown("If abstract reports OR with 95% CI, you can estimate log(OR) SE.")
+        st.markdown("If abstract reports OR with 95% CI, estimate SE[log(OR)].")
         or_point = st.number_input("OR (point estimate)", min_value=0.01, value=1.8, step=0.05, key="cc_or_point")
         ci_low = st.number_input("CI lower", min_value=0.0001, value=1.1, step=0.05, key="cc_or_ci_low")
         ci_high = st.number_input("CI upper", min_value=0.0001, value=2.9, step=0.05, key="cc_or_ci_high")
@@ -127,10 +153,12 @@ Typical sources from abstracts:
                 z = stats.norm.ppf(0.975)
                 se_log_or = (math.log(ci_high) - math.log(ci_low)) / (2 * z)
                 st.success(f"SE[log(OR)] ≈ {se_log_or:.4f}")
-                st.caption("This is mainly for reporting/QA; sample-size still uses OR + p0 + ratio.")
+                st.caption("This is mainly for QA/reporting; planning uses OR + p0 + ratio.")
+
+        st.caption(f"Current OR = {or_point:.4f}")
 
     with tab_rr:
-        st.markdown("Sometimes papers report RR instead of OR. Convert approximately using baseline risk p0.")
+        st.markdown("Convert RR to OR approximately using baseline risk p0.")
         rr = st.number_input("RR", min_value=0.01, value=1.8, step=0.05, key="cc_rr")
         p0_for_conv = st.number_input("Baseline risk p0 (0–1)", min_value=0.0001, max_value=0.9999, value=0.20, step=0.01, key="cc_p0_conv")
 
@@ -140,7 +168,6 @@ Typical sources from abstracts:
                 st.error("Conversion failed (check RR and p0).")
             else:
                 st.success(f"Approx OR ≈ {or_from_rr:.4f}")
-                st.caption("Use this OR as a planning approximation (best when outcome is not rare).")
 
     # ==========================================================
     # PubMed helper
@@ -190,15 +217,32 @@ Typical sources from abstracts:
             st.error("Dropout rate too high. Please use < 0.95.")
             st.stop()
 
-        result = calculate_case_control_or(
-            alpha=alpha,
-            power=power,
-            p0=p0,
-            odds_ratio=odds_ratio,
-            control_case_ratio=control_case_ratio,
-            two_sided=two_sided,
-            dropout_rate=dropout_rate
-        )
+        try:
+            result = calculate_case_control_or(
+                alpha=alpha,
+                power=power,
+                p0=p0,
+                odds_ratio=odds_ratio,
+                control_case_ratio=control_case_ratio,
+                two_sided=two_sided,
+                dropout_rate=dropout_rate
+            )
+        except TypeError:
+            # Fallback: some implementations may have positional or different param names.
+            result = calculate_case_control_or(alpha, power, p0, odds_ratio, control_case_ratio, two_sided, dropout_rate)
+
+        norm = _pick_keys_case_control(result)
+
+        if norm["n_cases"] is None or norm["n_controls"] is None:
+            st.error(
+                "Calculator returned unexpected keys.\n\n"
+                f"Returned keys: {sorted(list(result.keys()))}\n\n"
+                "Expected one of:\n"
+                "- cases: n_cases / cases / n1 / n_group1\n"
+                "- controls: n_controls / controls / n2 / n_group2\n"
+                "- total: n_total (optional)"
+            )
+            st.stop()
 
         Z_alpha = stats.norm.ppf(1 - alpha / 2) if two_sided else stats.norm.ppf(1 - alpha)
         Z_beta = stats.norm.ppf(power)
@@ -207,9 +251,10 @@ Typical sources from abstracts:
         st.write(f"Zα = {Z_alpha:.4f}")
         st.write(f"Zβ = {Z_beta:.4f}")
 
-        st.success(f"Cases required: {result['n_cases']}")
-        st.success(f"Controls required: {result['n_controls']}")
-        st.write("Total sample size:", result["n_total"])
+        st.success(f"Cases required: {int(norm['n_cases'])}")
+        st.success(f"Controls required: {int(norm['n_controls'])}")
+        if norm["n_total"] is not None:
+            st.write("Total sample size:", int(norm["n_total"]))
 
         paragraph = paragraph_case_control_or(
             alpha=alpha,
@@ -219,8 +264,8 @@ Typical sources from abstracts:
             control_case_ratio=control_case_ratio,
             two_sided=two_sided,
             dropout_rate=dropout_rate,
-            n_cases=result["n_cases"],
-            n_controls=result["n_controls"]
+            n_cases=int(norm["n_cases"]),
+            n_controls=int(norm["n_controls"])
         )
 
         st.markdown("### 📄 Methods Paragraph")
