@@ -100,8 +100,7 @@ elif study_type == "Two Proportions":
 # ==========================================================
 # Remaining study types still inline (to be modularized)
 # ==========================================================
-else:
-    st.info("This study type is listed but not modularized yet. We'll add it next in order.")
+
 
 
 # ==========================================================
