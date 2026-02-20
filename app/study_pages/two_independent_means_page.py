@@ -1,4 +1,3 @@
-
 # ==========================================
 # Two Independent Means — Modular Version
 # ==========================================
@@ -26,14 +25,14 @@ def render(alpha: float, power: float, dropout_rate: float, two_sided: bool):
 Used when comparing mean of two independent groups.
 
 Examples:
-• Treatment vs Control
-• Male vs Female
-• Drug A vs Drug B
+• Treatment vs Control  
+• Male vs Female  
+• Drug A vs Drug B  
 
-Inputs required:
-• SD (assumed equal or pooled)
-• Mean difference (Δ)
-• Allocation ratio (n1/n2)
+Required inputs:
+• SD (pooled or assumed equal)  
+• Mean difference (Δ)  
+• Allocation ratio (n2/n1)  
         """)
 
     # ==========================================================
@@ -43,8 +42,15 @@ Inputs required:
     with st.expander("📐 Mathematical Formula", expanded=True):
 
         st.latex(r"""
-        n = 2 \left( \frac{(Z_{\alpha} + Z_{\beta}) \cdot SD}{\Delta} \right)^2
+        n_1 =
+        \left(1 + \frac{1}{r}\right)
+        \left(
+        \frac{(Z_{\alpha} + Z_{\beta}) \cdot SD}
+        {\Delta}
+        \right)^2
         """)
+
+        st.latex(r"n_2 = r \cdot n_1")
 
     # ==========================================================
     # SD Extraction Component
@@ -108,34 +114,50 @@ Inputs required:
 
     if st.button("Calculate Sample Size", key="two_calc_button"):
 
+        delta_used = abs(delta)
+
+        # ✅ Correct parameter order (matches original inline version)
         result = calculate_two_independent_means(
             alpha,
             power,
             sd,
-            delta,
+            delta_used,
+            allocation_ratio,
             two_sided,
-            dropout_rate,
-            allocation_ratio
+            dropout_rate
         )
 
         Z_alpha = stats.norm.ppf(1 - alpha/2) if two_sided else stats.norm.ppf(1 - alpha)
         Z_beta = stats.norm.ppf(power)
 
+        st.markdown("### 🔎 Intermediate Values")
+
         st.write(f"Zα = {round(Z_alpha,4)}")
         st.write(f"Zβ = {round(Z_beta,4)}")
 
-        st.success(f"Group 1 Sample Size: {result['n1']}")
-        st.success(f"Group 2 Sample Size: {result['n2']}")
+        st.latex(rf"""
+        n_1 =
+        \left(1 + \frac{{1}}{{{allocation_ratio}}}\right)
+        \left(
+        \frac{{({round(Z_alpha,4)} + {round(Z_beta,4)}) \cdot {sd}}}
+        {{{delta_used}}}
+        \right)^2
+        """)
+
+        st.success(f"Group 1 Required: {result['n_group1']}")
+        st.success(f"Group 2 Required: {result['n_group2']}")
+        st.write("Total Sample Size:", result["n_total"])
 
         paragraph = paragraph_two_independent_means(
             alpha,
             power,
             sd,
-            delta,
+            delta_used,
+            allocation_ratio,
             two_sided,
             dropout_rate,
-            result["n1"],
-            result["n2"]
+            result["n_group1"],
+            result["n_group2"]
         )
 
         st.markdown("### 📄 Methods Paragraph")
