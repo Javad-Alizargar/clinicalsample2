@@ -16,19 +16,12 @@ import streamlit as st
 # Modular study pages
 from app.study_pages.one_sample_mean_page import render as render_one_sample_mean
 from app.study_pages.two_independent_means_page import render as render_two_independent_means
-from app.study_pages.paired_mean_page import render as render_paired_mean   # ✅ NEW
+from app.study_pages.paired_mean_page import render as render_paired_mean
+from app.study_pages.anova_oneway_page import render as render_anova_oneway  # ✅ NEW
 
-# Continuous calculators (kept for other non-modular types)
-from calculators.continuous.anova_oneway import calculate_anova_oneway
-
-# Binary calculators
+# Binary calculators (still inline for now)
 from calculators.binary.one_proportion import calculate_one_proportion
 from calculators.binary.two_proportions import calculate_two_proportions
-
-# Templates
-from templates.paragraph_templates import (
-    paragraph_anova
-)
 
 # --------------------------------------------------
 st.set_page_config(page_title="ClinSample AI", layout="centered")
@@ -95,7 +88,7 @@ elif study_type == "Two Independent Means":
     )
 
 # ==========================================================
-# PAIRED MEAN (Modular)  ✅ NEW
+# PAIRED MEAN (Modular)
 # ==========================================================
 elif study_type == "Paired Mean":
 
@@ -107,382 +100,22 @@ elif study_type == "Paired Mean":
     )
 
 # ==========================================================
+# ONE-WAY ANOVA (Modular)  ✅ NEW
+# ==========================================================
+elif study_type == "One-Way ANOVA":
+
+    render_anova_oneway(
+        alpha=alpha,
+        power=power,
+        dropout_rate=dropout_rate,
+        two_sided=two_sided
+    )
+
+# ==========================================================
 # Remaining study types still inline (to be modularized)
 # ==========================================================
 
 
-# ==========================================================
-# PAIRED MEAN (Before–After / Matched Pairs)
-# ==========================================================
-elif study_type == "Paired Mean":
-
-    import scipy.stats as stats
-    import math
-
-    st.header("Paired Mean (Before–After / Matched Pairs)")
-
-    # --------------------------------------------------
-    with st.expander("📘 When to Use This Design", expanded=True):
-        st.markdown("""
-Used when the **same participants** are measured twice (or matched pairs are compared).
-
-Common examples:
-• Blood pressure before vs after an intervention  
-• Pain score pre-treatment vs post-treatment  
-• Lab marker measured at baseline and follow-up in the same subjects  
-
-Key idea:
-Because measurements are paired, variability is based on the **within-subject differences**,
-not the raw SD of each timepoint.
-        """)
-
-    # --------------------------------------------------
-    with st.expander("📐 Mathematical Formula", expanded=True):
-
-        st.write("Core sample size formula for paired mean difference:")
-
-        st.latex(r"""
-        n = \left( \frac{(Z_{\alpha} + Z_{\beta}) \cdot SD_d}{\Delta} \right)^2
-        """)
-
-        st.write("Where:")
-
-        st.latex(r"SD_d = \text{SD of within-subject differences } (d_i = X_{post,i}-X_{pre,i})")
-        st.latex(r"\Delta = \text{clinically meaningful mean difference in paired change}")
-        st.latex(r"Z_{\alpha} = \Phi^{-1}(1-\alpha/2)\ \text{(two-sided)}")
-        st.latex(r"Z_{\beta} = \Phi^{-1}(power)")
-
-        st.write("For one-sided test:")
-
-        st.latex(r"Z_{\alpha} = \Phi^{-1}(1-\alpha)")
-
-    # --------------------------------------------------
-    with st.expander("🧮 Compute SD of Differences (SDd) from Simple Inputs", expanded=False):
-
-        st.markdown("""
-Most users do **not** directly know SD of differences.
-You can estimate it from common values available in literature/pilot studies.
-
-### Method 1 — If you have SD of paired differences directly:
-Use that value as **SDd**.
-
-### Method 2 — If you only have SD at baseline and follow-up + correlation (ρ):
-Use:
-
-SDd = √(SD_pre² + SD_post² − 2ρ·SD_pre·SD_post)
-
-This is the most common practical approach.
-        """)
-
-        st.write("Formula:")
-
-        st.latex(r"""
-        SD_d =
-        \sqrt{
-        SD_{pre}^2 + SD_{post}^2 - 2\rho \cdot SD_{pre} \cdot SD_{post}
-        }
-        """)
-
-        sd_pre = st.number_input("SD at Baseline (SD_pre)", min_value=0.0001, value=1.0)
-        sd_post = st.number_input("SD at Follow-up (SD_post)", min_value=0.0001, value=1.0)
-        rho = st.number_input("Correlation between measurements (ρ)", min_value=0.0, max_value=0.99, value=0.5)
-
-        if st.button("Compute SDd"):
-
-            sdd = math.sqrt(sd_pre**2 + sd_post**2 - 2*rho*sd_pre*sd_post)
-            st.success(f"Estimated SD of Differences (SDd) = {round(sdd,4)}")
-
-            st.markdown("Interpretation notes:")
-            st.write("• Higher correlation (ρ) → smaller SDd → smaller required sample size")
-            st.write("• If correlation is unknown, ρ=0.5 is a common planning default")
-
-    # --------------------------------------------------
-    with st.expander("🧮 Compute Mean Difference (Δ) from Two Means", expanded=False):
-
-        st.markdown("""
-If you have means for baseline and follow-up (or paired conditions), compute:
-
-Δ = Mean_post − Mean_pre
-
-Use absolute value for planning (magnitude of change).
-        """)
-
-        mean_pre = st.number_input("Mean at Baseline (Mean_pre)", value=0.0)
-        mean_post = st.number_input("Mean at Follow-up (Mean_post)", value=0.0)
-
-        if st.button("Compute Δ (paired change)"):
-
-            delta_raw = mean_post - mean_pre
-            delta_abs = abs(delta_raw)
-
-            st.write(f"Raw Δ (post - pre) = {round(delta_raw,4)}")
-            st.write(f"Absolute Δ used in calculation = {round(delta_abs,4)}")
-
-    # --------------------------------------------------
-    with st.expander("📊 Parameter Guidance (How to Choose SDd and Δ)", expanded=False):
-
-        st.markdown("""
-**SDd (SD of differences)**  
-Preferred sources:
-• Pilot study: compute differences per subject and take SD  
-• Prior paired studies reporting SD of change  
-• If only SD_pre and SD_post available: use correlation-based formula above  
-
-**Correlation (ρ)**  
-Sources:
-• Pilot study correlation  
-• Similar published studies  
-If unknown, ρ=0.3–0.7 is typical; 0.5 is a practical default.
-
-**Δ (paired mean difference)**  
-Should be clinically meaningful change (e.g., minimal clinically important difference, MCID)
-or expected change from literature.
-
-Smaller Δ → larger sample size.
-        """)
-
-    # --------------------------------------------------
-    with st.expander("🧮 Understanding Z-values", expanded=False):
-
-        st.latex(r"Z_{\alpha} = \Phi^{-1}(1-\alpha/2)")
-        st.latex(r"Z_{\beta} = \Phi^{-1}(power)")
-
-        st.write("Common reference values:")
-        st.write("• α = 0.05 (two-sided) → Zα ≈ 1.96")
-        st.write("• Power = 0.80 → Zβ ≈ 0.84")
-        st.write("• Power = 0.90 → Zβ ≈ 1.28")
-
-    # --------------------------------------------------
-    st.markdown("---")
-    st.subheader("🎯 Final Sample Size Planning")
-
-    sd_diff = st.number_input("SD of Differences (SDd) for Planning", min_value=0.0001, value=1.0)
-    delta = st.number_input("Mean Difference (Δ) for Planning", min_value=0.0001, value=0.5)
-
-    if st.button("Calculate Sample Size"):
-
-        delta_used = abs(delta)
-
-        result = calculate_paired_mean(
-            alpha,
-            power,
-            sd_diff,
-            delta_used,
-            two_sided,
-            dropout_rate
-        )
-
-        # Intermediate Z-values
-        if two_sided:
-            Z_alpha = stats.norm.ppf(1 - alpha/2)
-        else:
-            Z_alpha = stats.norm.ppf(1 - alpha)
-
-        Z_beta = stats.norm.ppf(power)
-
-        st.markdown("### 🔎 Intermediate Values")
-        st.write(f"Zα = {round(Z_alpha,4)}")
-        st.write(f"Zβ = {round(Z_beta,4)}")
-
-        st.latex(rf"""
-        n =
-        \left(
-        \frac{{({round(Z_alpha,4)} + {round(Z_beta,4)}) \cdot {sd_diff}}}
-        {{{delta_used}}}
-        \right)^2
-        """)
-
-        st.success(f"Required Sample Size: {result['n_required']}")
-        st.write("Before Dropout Adjustment:", result["n_before_dropout"])
-
-        st.markdown("### 📄 Copy for Thesis / Manuscript")
-
-        paragraph = paragraph_paired_mean(
-            alpha,
-            power,
-            sd_diff,
-            delta_used,
-            two_sided,
-            dropout_rate,
-            result["n_required"]
-        )
-
-        st.code(paragraph)
-
-
-# ==========================================================
-# ONE-WAY ANOVA (k groups)
-# ==========================================================
-elif study_type == "One-Way ANOVA":
-
-    import math
-
-    st.header("One-Way ANOVA (k Independent Groups)")
-
-    # --------------------------------------------------
-    with st.expander("📘 When to Use This Design", expanded=True):
-        st.markdown("""
-Used when comparing a continuous outcome across 3 or more independent groups.
-
-Examples:
-• LDL cholesterol across 3 diet regimens  
-• Pain score across 4 treatment arms  
-
-Assumptions:
-• Independent groups  
-• Approximate normal distribution  
-• Similar variance across groups  
-        """)
-
-    # --------------------------------------------------
-    with st.expander("📐 Mathematical Foundations", expanded=True):
-
-        st.write("Cohen’s f (effect size for ANOVA):")
-
-        st.latex(r"f = \sqrt{\frac{\eta^2}{1-\eta^2}}")
-
-        st.write("Power model solved using F-test framework:")
-
-        st.latex(r"N = \text{solve\_power}(f,\ \alpha,\ \text{power},\ k)")
-
-    # --------------------------------------------------
-    with st.expander("🧮 Compute Common SD from Group SDs", expanded=False):
-
-        st.markdown("""
-If literature reports SD separately for each group,
-you can compute pooled (common) SD.
-
-Formula:
-        """)
-
-        st.latex(r"""
-        SD_{pooled} =
-        \sqrt{
-        \frac{\sum (n_i - 1)SD_i^2}
-        {\sum (n_i - 1)}
-        }
-        """)
-
-        k_sd = st.number_input("Number of Groups (for SD pooling)", min_value=2, value=3)
-
-        ns = []
-        sds = []
-
-        for i in range(int(k_sd)):
-            ns.append(st.number_input(f"Group {i+1} sample size (n{i+1})", min_value=2, value=20, key=f"anova_n_{i}"))
-            sds.append(st.number_input(f"Group {i+1} SD (SD{i+1})", min_value=0.0001, value=1.0, key=f"anova_sd_{i}"))
-
-        if st.button("Compute Common SD"):
-
-            numerator = sum((ns[i]-1)*(sds[i]**2) for i in range(len(ns)))
-            denominator = sum((ns[i]-1) for i in range(len(ns)))
-
-            pooled_sd = math.sqrt(numerator / denominator)
-
-            st.success(f"Common (Pooled) SD = {round(pooled_sd,4)}")
-
-            st.write("Interpretation:")
-            st.write("• Use this SD for Cohen's f estimation")
-            st.write("• Conservative approach: slightly inflate SD")
-
-    # --------------------------------------------------
-    with st.expander("🧮 Compute Cohen’s f from Group Means + Common SD", expanded=False):
-
-        st.markdown("""
-Given group means and common SD:
-
-1) Compute grand mean  
-2) Compute between-group variance  
-3) f = √(Variance_between) / SD
-        """)
-
-        st.latex(r"\bar{\mu} = \frac{\sum \mu_i}{k}")
-        st.latex(r"V = \frac{\sum (\mu_i-\bar{\mu})^2}{k}")
-        st.latex(r"f = \frac{\sqrt{V}}{SD}")
-
-        k_est = st.number_input("Number of Groups (for f estimation)", min_value=2, value=3)
-
-        means = []
-
-        for i in range(int(k_est)):
-            means.append(st.number_input(f"Mean Group {i+1}", value=0.0, key=f"anova_mean_{i}"))
-
-        sd_common = st.number_input("Common SD for f estimation", min_value=0.0001, value=1.0)
-
-        if st.button("Compute Cohen's f"):
-
-            grand_mean = sum(means) / len(means)
-            ss_between = sum((m - grand_mean)**2 for m in means)
-            variance_between = ss_between / len(means)
-
-            f_calc = math.sqrt(variance_between) / sd_common
-
-            st.success(f"Cohen's f = {round(f_calc,4)}")
-
-            st.write("Guidelines:")
-            st.write("• 0.10 = small")
-            st.write("• 0.25 = medium")
-            st.write("• 0.40 = large")
-
-    # --------------------------------------------------
-    with st.expander("📊 Parameter Guidance", expanded=False):
-
-        st.markdown("""
-**Common SD**
-
-Sources:
-• Published group SDs (pooled)  
-• Pilot study SDs  
-• Meta-analysis pooled SD  
-
-Avoid:
-Using smallest SD (inflates effect).
-
----
-
-**Cohen’s f**
-
-Derived from:
-• Means + SD  
-• η² from literature  
-• Pilot study effect  
-
-Avoid overestimating f.
-        """)
-
-    # --------------------------------------------------
-    st.markdown("---")
-    st.subheader("🎯 Final Sample Size Planning")
-
-    effect_size = st.number_input("Cohen's f for Planning", min_value=0.0001, value=0.25)
-    k_groups = st.number_input("Number of Groups (k)", min_value=2, value=3)
-
-    if st.button("Calculate Sample Size"):
-
-        result = calculate_anova_oneway(
-            alpha,
-            power,
-            effect_size,
-            k_groups,
-            dropout_rate
-        )
-
-        st.success(f"Total Sample Size: {result['n_total']}")
-        st.write("Participants per Group:", result["n_per_group"])
-
-        st.markdown("### 📄 Copy for Thesis")
-
-        paragraph = paragraph_anova(
-            alpha,
-            power,
-            effect_size,
-            k_groups,
-            dropout_rate,
-            result["n_total"],
-            result["n_per_group"]
-        )
-
-        st.code(paragraph)
 # ==========================================================
 # ONE PROPORTION (Single-Group Proportion Test)
 # ==========================================================
