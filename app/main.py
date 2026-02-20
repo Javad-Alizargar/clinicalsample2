@@ -21,7 +21,8 @@ from app.study_pages.anova_oneway_page import render as render_anova_oneway
 from app.study_pages.one_proportion_page import render as render_one_proportion
 from app.study_pages.two_proportions_page import render as render_two_proportions
 from app.study_pages.case_control_or_page import render as render_case_control_or
-from app.study_pages.cohort_rr_page import render as render_cohort_rr  # ✅ NEW
+from app.study_pages.cohort_rr_page import render as render_cohort_rr 
+from app.study_pages.correlation_page import render as render_correlation  # ✅ NEW
 
 # --------------------------------------------------
 st.set_page_config(page_title="ClinSample AI", layout="centered")
@@ -111,6 +112,13 @@ elif study_type == "Case-Control (Odds Ratio)":
 elif study_type == "Cohort (Risk Ratio)":
 
     render_cohort_rr(alpha, power, dropout_rate, two_sided)
+# ==========================================================
+# CORRELATION ✅ NEW
+# ==========================================================
+elif study_type == "Correlation":
+
+    render_correlation(alpha, power, dropout_rate, two_sided)
+
 
 # ==========================================================
 # Remaining study types still inline (to be modularized)
