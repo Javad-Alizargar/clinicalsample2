@@ -24,8 +24,8 @@ from app.study_pages.case_control_or_page import render as render_case_control_o
 from app.study_pages.cohort_rr_page import render as render_cohort_rr 
 from app.study_pages.correlation_page import render as render_correlation
 from app.study_pages.linear_regression_page import render as render_linear_regression 
-from app.study_pages.logistic_regression_page import render as render_logistic_regression  # ✅ NEW
-
+from app.study_pages.logistic_regression_page import render as render_logistic_regression
+from app.study_pages.logrank_page import render as render_logrank
 # --------------------------------------------------
 st.set_page_config(page_title="ClinSample AI", layout="centered")
 
@@ -134,174 +134,11 @@ elif study_type == "Logistic Regression":
 
     render_logistic_regression(alpha, power, dropout_rate, two_sided)
 # ==========================================================
-# Remaining study types still inline (to be modularized)
-# ==========================================================
-
-
-# ==========================================================
-# SURVIVAL (LOG-RANK) — Full Professional Version
+# SURVIVAL (LOG-RANK) ✅ NEW
 # ==========================================================
 elif study_type == "Survival (Log-Rank)":
 
-    import scipy.stats as stats
-    import math
-
-    st.header("Survival Analysis — Log-Rank Test Sample Size (Event-Driven)")
-
-    # --------------------------------------------------
-    with st.expander("📘 When to Use This Design", expanded=True):
-        st.markdown("""
-Used for comparing time-to-event outcomes between two independent groups.
-
-Examples:
-• Overall survival in oncology trials  
-• Time to relapse  
-• Time to cardiovascular event  
-• Device failure time  
-
-Key principle:
-Log-rank tests are **event-driven**, meaning required sample size
-depends primarily on the number of events, not just participants.
-        """)
-
-    # --------------------------------------------------
-    with st.expander("📐 Mathematical Foundation (Schoenfeld Method)", expanded=True):
-
-        st.markdown("### Required Number of Events")
-
-        st.latex(
-            r"D = \frac{(Z_{\alpha} + Z_{\beta})^2}{(\ln(HR))^2 \cdot p(1-p)}"
-        )
-
-        st.markdown("Where:")
-
-        st.latex(r"HR = \text{Hazard Ratio}")
-        st.latex(r"p = \text{Allocation proportion in group 1}")
-        st.latex(r"Z_{\alpha} = \Phi^{-1}(1-\alpha/2)")
-        st.latex(r"Z_{\beta} = \Phi^{-1}(power)")
-
-        st.markdown("### Total Sample Size Approximation")
-
-        st.latex(
-            r"N = \frac{D}{\text{Expected Event Rate}}"
-        )
-
-    # --------------------------------------------------
-    with st.expander("📊 Parameter Interpretation", expanded=False):
-        st.markdown("""
-**Hazard Ratio (HR)**  
-HR < 1 → protective effect  
-HR > 1 → harmful effect  
-
-Example:
-HR = 0.70 means 30% reduction in hazard.
-
----
-
-**Allocation Proportion (p)**  
-If equal randomization → p = 0.5  
-If 2:1 design → p = 0.67  
-
----
-
-**Expected Event Rate**  
-Proportion of participants expected to experience the event
-during follow-up.
-
-Sources:
-• Previous trials  
-• Registry data  
-• Meta-analysis  
-• Pilot survival curve  
-
-Lower event rate → larger required N.
-        """)
-
-    # --------------------------------------------------
-    st.markdown("---")
-    st.subheader("🎯 Survival Sample Size Calculation")
-
-    hr = st.number_input(
-        "Target Hazard Ratio (HR)",
-        min_value=0.01,
-        value=0.70,
-        key="surv_hr"
-    )
-
-    alloc_ratio = st.number_input(
-        "Allocation Ratio (n₂ / n₁)",
-        min_value=0.1,
-        value=1.0,
-        key="surv_ratio"
-    )
-
-    event_rate = st.number_input(
-        "Expected Overall Event Rate (0–1)",
-        min_value=0.01,
-        max_value=0.99,
-        value=0.50,
-        key="surv_event_rate"
-    )
-
-    if st.button("Calculate Survival Sample Size", key="surv_calc"):
-
-        # Z-values
-        if two_sided:
-            Z_alpha = stats.norm.ppf(1 - alpha/2)
-        else:
-            Z_alpha = stats.norm.ppf(1 - alpha)
-
-        Z_beta = stats.norm.ppf(power)
-
-        ln_hr = math.log(hr)
-
-        # allocation proportion p
-        p = 1 / (1 + alloc_ratio)
-
-        # required events
-        D = ((Z_alpha + Z_beta)**2) / ((ln_hr**2) * p * (1 - p))
-
-        # total sample size approximation
-        N_total = D / event_rate
-
-        N_total_adj = math.ceil(N_total / (1 - dropout_rate))
-
-        n1 = math.ceil(N_total_adj * p)
-        n2 = math.ceil(N_total_adj * (1 - p))
-
-        # --------------------------------------------------
-        st.markdown("### 🔎 Intermediate Values")
-
-        st.write(f"Zα = {round(Z_alpha,4)}")
-        st.write(f"Zβ = {round(Z_beta,4)}")
-        st.write(f"log(HR) = {round(ln_hr,4)}")
-        st.write(f"Allocation proportion p = {round(p,4)}")
-        st.write(f"Required Events (D) = {math.ceil(D)}")
-
-        st.latex(
-            rf"D = \frac{{({round(Z_alpha,3)} + {round(Z_beta,3)})^2}}{{({round(ln_hr,3)})^2 \cdot {round(p,3)}(1-{round(p,3)})}}"
-        )
-
-        st.success(f"Total Required Sample Size: {N_total_adj}")
-        st.success(f"Group 1 (n₁): {n1}")
-        st.success(f"Group 2 (n₂): {n2}")
-
-        # --------------------------------------------------
-        st.markdown("### 📄 Copy for Thesis / Manuscript")
-
-        st.code(f"""
-Sample size was calculated for a survival analysis using the log-rank test
-based on Schoenfeld’s method.
-
-Assuming:
-• Two-sided α = {alpha}
-• Power = {power}
-• Target hazard ratio = {hr}
-• Expected event rate = {event_rate}
-• Allocation ratio (n2/n1) = {alloc_ratio}
-
-The required number of events was {math.ceil(D)},
-resulting in a total sample size of {N_total_adj} participants
-(after adjusting for {dropout_rate*100:.1f}% anticipated dropout),
-with {n1} participants in group 1 and {n2} in group 2.
-        """)
+    render_logrank(alpha, power, dropout_rate, two_sided)
+# ==========================================================
+# Remaining study types still inline (to be modularized)
+# ==========================================================
