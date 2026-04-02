@@ -86,7 +86,11 @@ elif study_type == "Two Independent Means":
 # ==========================================================
 elif study_type == "Paired Mean":
     render_paired_mean(alpha, power, dropout_rate, two_sided)
-
+# ==========================================================
+# MULTIPLE MEASUREMENTS (REPEATED)
+# ==========================================================
+elif study_type == "Multiple Measurements (Repeated)":
+    render_repeated_measures(alpha, power, dropout_rate, two_sided)
 # ==========================================================
 # ONE-WAY ANOVA
 # ==========================================================
