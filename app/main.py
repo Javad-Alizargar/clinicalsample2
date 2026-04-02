@@ -26,6 +26,7 @@ from app.study_pages.correlation_page import render as render_correlation
 from app.study_pages.linear_regression_page import render as render_linear_regression 
 from app.study_pages.logistic_regression_page import render as render_logistic_regression
 from app.study_pages.logrank_page import render as render_logrank
+from app.study_pages.repeated_measures_page import render as render_repeated_measures
 # --------------------------------------------------
 st.set_page_config(page_title="ClinSample AI", layout="centered")
 
@@ -33,6 +34,7 @@ st.title("ClinSample AI — Sample Size Calculator")
 st.markdown("Mathematically standardized, thesis-ready sample size planning.")
 
 # --------------------------------------------------
+
 study_type = st.selectbox(
     "Select Study Type",
     [
@@ -40,6 +42,7 @@ study_type = st.selectbox(
         "One-Sample Mean",
         "Two Independent Means",
         "Paired Mean",
+        "Multiple Measurements (Repeated)", # <-- Add this line
         "One-Way ANOVA",
 
         # Binary
