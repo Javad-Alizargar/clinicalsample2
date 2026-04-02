@@ -117,3 +117,19 @@ def paragraph_logrank(alpha, power, hazard_ratio, allocation_ratio, event_fracti
         f"the required total sample size was {n_total} participants ({n1} in group 1 and {n2} in group 2) after adjusting for an anticipated "
         f"dropout rate of {dropout_rate*100:.1f}%."
     )
+def paragraph_repeated_measures(alpha, power, sd, delta, m, rho, scenario, allocation_ratio, two_sided, dropout_rate, n1, n2):
+    sided = "two-sided" if two_sided else "one-sided"
+    
+    if scenario == "average":
+        aim = "detect a difference in the overall average between groups across all time points"
+    else:
+        aim = "detect a difference in the change over time between groups (Group × Time interaction)"
+
+    return (
+        f"Sample size was calculated to {aim} using a repeated measures design. "
+        f"The calculation assumed a {sided} α={alpha:.3g}, power={power:.3g}, a standard deviation (SD) of {sd:g}, "
+        f"and a clinically meaningful difference (Δ) of {delta:g}. "
+        f"Assuming participants are measured {m} times with an intra-subject correlation of ρ={rho:g}, "
+        f"and an allocation ratio of {allocation_ratio:g} (group 2 / group 1), the required sample size was "
+        f"{n1} in group 1 and {n2} in group 2, after adjusting for an anticipated dropout rate of {dropout_rate*100:.1f}%."
+    )
